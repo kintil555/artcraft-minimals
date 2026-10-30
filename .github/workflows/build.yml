@@ -24,13 +24,13 @@ jobs:
         include:
           - os: ubuntu-latest
             bin: artcraft-launcher
-            asset: artcraft-minimals-linux-x86_64
+            target: linux-x86_64
           - os: windows-latest
             bin: artcraft-launcher.exe
-            asset: artcraft-minimals-windows-x64
+            target: windows-x64
           - os: macos-latest
             bin: artcraft-launcher
-            asset: artcraft-minimals-macos-arm64
+            target: macos-arm64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -45,28 +45,45 @@ jobs:
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
-      - name: Build
-        run: cargo build --release --locked -p artcraft-launcher
+      - name: Version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+            # The binary must report the tag's version, or it would offer itself as an update forever.
+            perl -0pi -e "s/^version = \".*?\"/version = \"$V\"/m" Cargo.toml
+          else
+            V="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          fi
+          echo "v=$V" >> "$GITHUB_OUTPUT"
 
+      - name: Build
+        run: cargo build --release -p artcraft-launcher
+
+      # Asset names follow what the launcher's self-update looks for:
+      # artcraft-launcher-<version>-<os>-<arch>[-portable.zip | .tar.gz]
       - name: Package
         shell: bash
         run: |
-          mkdir dist
-          cp "target/release/${{ matrix.bin }}" dist/
-          cp LICENSE-MIT LICENSE-APACHE NOTICE dist/
-          cd dist
+          NAME="artcraft-launcher-${{ steps.ver.outputs.v }}-${{ matrix.target }}"
           if [ "$RUNNER_OS" = "Windows" ]; then
-            7z a "../${{ matrix.asset }}.zip" .
+            mkdir "$NAME"
+            cp "target/release/${{ matrix.bin }}" LICENSE-MIT LICENSE-APACHE NOTICE "$NAME/"
+            : > "$NAME/portable.txt"
+            7z a "${NAME}-portable.zip" "$NAME"
           else
-            tar -czf "../${{ matrix.asset }}.tar.gz" .
+            mkdir dist
+            cp "target/release/${{ matrix.bin }}" LICENSE-MIT LICENSE-APACHE NOTICE dist/
+            tar -czf "${NAME}.tar.gz" -C dist .
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset }}
+          name: ${{ matrix.target }}
           path: |
-            ${{ matrix.asset }}.zip
-            ${{ matrix.asset }}.tar.gz
+            artcraft-launcher-*-portable.zip
+            artcraft-launcher-*.tar.gz
           if-no-files-found: error
 
   release:
@@ -84,4 +101,6 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "${{ github.ref_name }}" assets/* --repo "${{ github.repository }}" --generate-notes
+        run: |
+          (cd assets && sha256sum * > SHA256SUMS.txt)
+          gh release create "${{ github.ref_name }}" assets/* --repo "${{ github.repository }}" --generate-notes
