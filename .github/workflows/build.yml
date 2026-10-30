@@ -59,7 +59,10 @@ jobs:
           echo "v=$V" >> "$GITHUB_OUTPUT"
 
       - name: Build
-        run: cargo build --release -p artcraft-launcher
+        run: |
+          # Only the workspace crates' own versions may change; every other dependency stays locked.
+          cargo update --workspace
+          cargo build --release --locked -p artcraft-launcher
 
       # Asset names follow what the launcher's self-update looks for:
       # artcraft-launcher-<version>-<os>-<arch>[-portable.zip | .tar.gz]
