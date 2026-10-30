@@ -4,7 +4,7 @@ description = "Release checking, downloading, installing and self-updating for t
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-rust-version = "0.1.0"
+rust-version = "1.95"
 repository = "https://github.com/storytold/craft-libs"
 
 [features]
