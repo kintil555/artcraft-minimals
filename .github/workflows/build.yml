@@ -49,13 +49,17 @@ jobs:
         id: ver
         shell: bash
         run: |
+          BASE="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             V="${GITHUB_REF_NAME#v}"
-            # The binary must report the tag's version, or it would offer itself as an update forever.
-            perl -0pi -e "s/^version = \".*?\"/version = \"$V\"/m" Cargo.toml
+          elif [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_EVENT_NAME" == push ]]; then
+            # Every push to main is a release: <major>.<minor>.<run number>.
+            V="${BASE%.*}.${GITHUB_RUN_NUMBER}"
           else
-            V="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+            V="$BASE"
           fi
+          # The binary must report the release's version, or it would offer itself as an update forever.
+          perl -0pi -e "s/^version = \".*?\"/version = \"$V\"/m" Cargo.toml
           echo "v=$V" >> "$GITHUB_OUTPUT"
 
       - name: Build
@@ -91,7 +95,7 @@ jobs:
 
   release:
     name: release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && github.event_name == 'push')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -106,4 +110,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           (cd assets && sha256sum * > SHA256SUMS.txt)
-          gh release create "${{ github.ref_name }}" assets/* --repo "${{ github.repository }}" --generate-notes
+          V="$(ls assets/artcraft-launcher-*-linux-x86_64.tar.gz | sed -E 's/.*artcraft-launcher-(.*)-linux-x86_64\.tar\.gz/\1/')"
+          gh release create "v$V" assets/* --repo "${{ github.repository }}" --target "$GITHUB_SHA" --generate-notes
