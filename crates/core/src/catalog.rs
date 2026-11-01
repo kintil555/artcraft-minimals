@@ -1,5 +1,6 @@
-//! The apps the launcher knows about. This minimal build lists FilmCraft only, from the
-//! `kintil555/filmcraft` fork; [`SUITE`] is the built-in list.
+//! The apps the launcher knows about. This minimal build lists FilmCraft (from the
+//! `kintil555/filmcraft` fork) and EffectCraft (motion graphics, ArtCraft's release);
+//! [`SUITE`] is the built-in list.
 //!
 //! Text here is English, the source the UI translates from: each `tagline` has a catalog row
 //! keyed by the app id (`tr_ctx(app.id, app.tagline)` in `ui-egui`).
@@ -121,18 +122,28 @@ const fn app(
     }
 }
 
-/// The only app this build knows: FilmCraft, installed and updated from the fork at
-/// `kintil555/filmcraft` (it carries its own modifications), not from ArtCraft's repository.
-pub const SUITE: [CraftApp; 1] = [CraftApp {
-    site: Some("https://github.com/kintil555/filmcraft"),
-    ..app(
-        "filmcraft",
-        "FilmCraft",
-        "Video editing, color and sound",
-        [[0x8b, 0x5c, 0xf6], [0x6a, 0x3f, 0xd6], [0xb6, 0x9c, 0xff]],
-        "kintil555/filmcraft",
-    )
-}];
+/// The apps this build knows: FilmCraft, installed and updated from the fork at
+/// `kintil555/filmcraft` (it carries its own modifications), and EffectCraft, the After Effects
+/// style motion graphics app, from ArtCraft's own `storytold/effectcraft` releases.
+pub const SUITE: [CraftApp; 2] = [
+    CraftApp {
+        site: Some("https://github.com/kintil555/filmcraft"),
+        ..app(
+            "filmcraft",
+            "FilmCraft",
+            "Video editing, color and sound",
+            [[0x8b, 0x5c, 0xf6], [0x6a, 0x3f, 0xd6], [0xb6, 0x9c, 0xff]],
+            "kintil555/filmcraft",
+        )
+    },
+    app(
+        "effectcraft",
+        "EffectCraft",
+        "Motion graphics and visual effects",
+        [[0xe0, 0x36, 0x8f], [0xb0, 0x20, 0x6c], [0xff, 0x7a, 0xb8]],
+        "storytold/effectcraft",
+    ),
+];
 
 /// ArtCraft's website.
 pub const WEBSITE_URL: &str = "https://getartcraft.com";
@@ -176,6 +187,7 @@ pub const LAUNCHER_ID: &str = "artcraft-launcher";
 pub fn app_icon_png(id: &str) -> Option<&'static [u8]> {
     Some(match id {
         "filmcraft" => include_bytes!("../../../assets/app-icons/filmcraft.png"),
+        "effectcraft" => include_bytes!("../../../assets/app-icons/effectcraft.png"),
         _ => return None,
     })
 }
@@ -194,8 +206,8 @@ mod tests {
     }
 
     #[test]
-    fn suite_is_filmcraft_from_the_fork() {
-        assert_eq!(SUITE.len(), 1);
+    fn suite_is_filmcraft_from_the_fork_and_effectcraft() {
+        assert_eq!(SUITE.len(), 2);
         let film = CraftApp::by_id("filmcraft").unwrap();
         assert_eq!(film.name.to_lowercase(), film.id);
         assert_eq!(film.repo, "kintil555/filmcraft");
@@ -205,5 +217,9 @@ mod tests {
         assert_eq!(film.bundle_id(), "ai.storyteller.filmcraft");
         assert!(film.repo.starts_with(&format!("{GITHUB_OWNER}/")));
         assert!(CraftApp::by_id("photocraft").is_none());
+        let fx = CraftApp::by_id("effectcraft").unwrap();
+        assert_eq!(fx.repo, "storytold/effectcraft");
+        assert_eq!(fx.bundle_id(), "ai.storyteller.effectcraft");
+        assert_eq!(fx.website(), "https://getartcraft.com/apps/effectcraft");
     }
 }
